@@ -1,0 +1,1 @@
+UPDATE users SET shrift_size=shrift_size+12 WHERE shrift_type=13;

@@ -1,0 +1,1 @@
+UPDATE users SET sleep_time_b = '08:00:00';

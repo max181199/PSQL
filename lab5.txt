@@ -1,0 +1,158 @@
+-- LAB 5
+
+--READ UNCOMMITTED
+
+BEGIN;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+UPDATE users SET shrift_size = shrift_size+10 WHERE user_id!=11; 
+COMMIT;
+
+BEGIN;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+UPDATE users SET  shrift_size = shrift_size -10 WHERE user_id != 11;
+COMMIT; 
+
+-- защита от потерянных изменений 
+
+BEGIN ISOLATION LEVEL READ UNCOMMITTED ;
+UPDATE users SET recomendation = false;
+ROLLBACK;
+
+BEGIN ISOLATION LEVEL READ UNCOMMITTED;
+SELECT recomendation FROM users;
+COMMIT;
+
+-- в Postgres работает защита от грязного чтени т.е. READ UNCOMMITED == READ COMMITED;
+
+--READ COMMITED
+
+BEGIN ISOLATION LEVEL READ COMMITTED ;
+UPDATE users SET recomendation = false;
+ROLLBACK;
+
+BEGIN ISOLATION LEVEL READ COMMITTED;
+SELECT recomendation FROM users;
+COMMIT;
+
+-- защита аналогична верхнему
+
+BEGIN ISOLATION LEVEL READ COMMITTED ;
+UPDATE users SET recomendation = true;
+COMMIT;
+
+BEGIN ISOLATION LEVEL READ COMMITTED;
+SELECT recomendation FROM users;
+SELECT recomendation FROM users;
+COMMIT;
+
+--защита на повторное чтение отсутствует
+
+-- REPEATABLE READ
+
+BEGIN ISOLATION LEVEL REPEATABLE READ ;
+UPDATE users SET recomendation = true;
+COMMIT;
+
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+SELECT recomendation FROM users;
+SELECT recomendation FROM users;
+UPDATE users SET recomendation = true;
+COMMIT;
+-- защита от неповторяющегося чтения
+
+UPDATE users SET recomendation = false;
+
+BEGIN ISOLATION LEVEL REPEATABLE READ ;
+INSERT INTO users VALUES('1','1','1','1'); 
+COMMIT;
+
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+SELECT recomendation FROM users WHERE recomendation=true;
+SELECT recomendation FROM users WHERE recomendation=true;
+COMMIT;
+
+--защита от фантомов в posgrese
+
+-- SERABLIZABLE
+
+--защита от фантомов аналогичная предыдущему
+
+BEGIN ISOLATION LEVEL  SERIALIZABLE ;
+INSERT INTO users VALUES('2','2','2','2'); 
+COMMIT;
+
+BEGIN ISOLATION LEVEL  SERIALIZABLE;
+SELECT recomendation FROM users WHERE recomendation=true;
+SELECT recomendation FROM users WHERE recomendation=true;
+COMMIT;
+
+
+-- TRIGGERS
+
+CREATE OR REPLACE FUNCTION users_update_protect() RETURNS trigger AS $users_update_protect$
+BEGIN
+	-- проверим длину вводимого ника
+	IF ((char_length(NEW.user_name) > 30) OR (NEW.user_name IS NULL)) THEN
+		RAISE EXCEPTION 'Bad user_name' USING HINT = 'length user_name no more then 30 symbol';
+	END IF;
+	--  проверим длину пароля
+	IF ((char_length(NEW.password)  > 15) OR (NEW.password  IS NULL)) THEN
+		RAISE EXCEPTION 'Bad password ' USING HINT = 'length password  no more then 15 symbol';
+	END IF;
+	--  проверим длину почты
+	IF ((char_length(NEW.email)     > 30) OR (NEW.email     IS NULL)) THEN
+		RAISE EXCEPTION 'Bad email  ' USING HINT = 'length email  no more then 30 symbol';
+	END IF;
+	--  проверим длину реального имени
+	IF ((char_length(NEW.real_name)  > 500) OR (NEW.real_name  IS NULL)) THEN
+		RAISE EXCEPTION 'Bad real_name ' USING HINT = 'length real_name no more then 500 symbol';
+	END IF;
+	-- auto_enter всегда верен
+	-- проверим целостность типа шрифта и размер шрифта
+	IF (abs(NEW.shrift_size) > 100) OR (abs(NEW.shrift_size)=0) THEN NEW.shrift_size=12;
+	END IF;
+	NEW.shrift_size=abs(NEW.shrift_size);
+	IF (abs(NEW.shrift_type) > 100) OR (abs(NEW.shrift_type)=0) THEN NEW.shrift_type=12;
+	END IF;
+	NEW.shrift_type=abs(NEW.shrift_type);
+	-- sleep time верен всегда
+	-- sleep_time_b and sleep_time_e также верны почти всегда кроме
+	IF (NEW.sleep_time_b = NEW.sleep_time_e) THEN 
+		RAISE EXCEPTION 'Bad time of sleep' USING HINT = 'update time begining or ending';
+	END IF;
+	-- recomendation always right	
+	RETURN NEW;
+END;
+$users_update_protect$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION users_delete_protect() RETURNS trigger AS $users_delete_protect$
+BEGIN
+	DELETE FROM u_m   WHERE user_id = OLD.user_id;
+	RETURN OLD;	
+END;
+$users_delete_protect$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER users_u_i BEFORE INSERT OR UPDATE ON users
+FOR EACH ROW EXECUTE FUNCTION users_update_protect();
+
+CREATE  TRIGGER users_del BEFORE DELETE ON users
+FOR EACH ROW EXECUTE FUNCTION users_delete_protect();
+-- test
+
+UPDATE users SET password = NULL  WHERE user_id =2;
+UPDATE users SET sleep_time_b='00:00:00', sleep_time_e ='00:00:00' WHERE user_id =2;
+UPDATE users SET shrift_size=123 WHERE user_id =2;
+UPDATE users SET password = '111111111111111111'  WHERE user_id =2;
+
+BEGIN ISOLATION LEVEL READ UNCOMMITTED;
+UPDATE users SET shrift_size = 7 WHERE user_id=7;
+UPDATE users SET shrift_size = 10 WHERE user_id=8; 
+
+COMMIT;
+
+BEGIN ISOLATION LEVEL READ UNCOMMITTED;
+UPDATE users SET  shrift_size = 8 WHERE user_id = 8;
+UPDATE users SET shrift_size = 10 WHERE user_id=7;
+COMMIT; 
+	

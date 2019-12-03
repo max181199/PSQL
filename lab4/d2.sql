@@ -1,0 +1,1 @@
+DELETE FROM u_m   WHERE user_id=1;

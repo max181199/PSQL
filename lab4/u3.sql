@@ -1,0 +1,1 @@
+UPDATE users SET shrift_type=shrift_type+100;

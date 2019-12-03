@@ -1,0 +1,84 @@
+-- article and real autors name
+WITH tabl AS 
+(
+	SELECT article_id, user_id FROM m_a INNER JOIN u_m ON m_a.mask_id = u_m.mask_id ORDER BY article_id 
+),   
+	 tabl2 AS  
+(
+	SELECT real_name,article_id FROM users RIGHT OUTER JOIN tabl ON  users.user_id=tabl.user_id
+)
+	SELECT real_name,article_name FROM tabl2 LEFT OUTER JOIN article ON tabl2.article_id=article.article_id;	
+
+--mask and count article
+
+WITH tabl AS
+(
+	SELECT mask_id, count(article_id) AS count FROM m_a  GROUP BY mask_id ORDER BY mask_id
+),
+	tabl2 AS
+(	
+	SELECT mask_name,count FROM mask LEFT OUTER JOIN tabl ON mask.mask_id=tabl.mask_id
+)
+	SELECT mask_name FROM  tabl2 WHERE count= (SELECT max(count) FROM tabl2); 
+
+-- group_name and date of last creation artice
+
+WITH tabl AS
+(
+	SELECT group_name,time_cr FROM (groups RIGHT OUTER JOIN a_g ON groups.group_id = a_g.group_id)
+	                               LEFT OUTER JOIN article ON a_g.article_id = article.article_id
+)
+	SELECT group_name,max(time_cr) FROM tabl GROUP BY (group_name);
+
+-- article and mask who can read it
+
+SELECT article_name , mask_name FROM article INNER JOIN mask ON privilege >= read_pr_min ORDER BY mask_name;
+
+UPDATE users SET auto_enter=FALSE;
+UPDATE users SET shrift_size=shrift_size+12 WHERE shrift_type=13;
+UPDATE users SET shrift_type=shrift_type+100;
+UPDATE users SET sleep_time_b = '08:00:00';
+
+DELETE FROM users WHERE sleep_time_e!='00:00:00';
+DELETE FROM u_m   WHERE user_id=1;
+DELETE FROM users WHERE user_id=1;
+DELETE FROM u_m;
+
+DELETE FROM u_m   WHERE user_id IN (SELECT user_id FROM users WHERE sleep_time_b = '07:00:00') RETURNING user_id;
+DELETE FROM users WHERE sleep_time_b='07:00:00';
+
+ DELETE FROM users WHERE user_id IN 
+ (
+ 	DELETE FROM u_m WHERE user_id IN (SELECT user_id FROM users WHERE sleep_time_b = '07:00:00') RETURNING user_id);
+
+WITH lasb AS
+(
+	DELETE FROM u_m   WHERE user_id IN (SELECT user_id FROM users WHERE sleep_time_b = '07:00:00') RETURNING user_id
+)   
+	DELETE FROM u_m WHERE user_id IN (SELECT user_id FROM lasb);
+	
+
+
+UPDATE mask SET photo_w = '/s/photo/winner.png' WHERE mask_id=
+(
+	WITH tabl AS
+(
+	SELECT mask_id, count(article_id) AS count FROM m_a  GROUP BY mask_id ORDER BY mask_id
+),
+	tabl2 AS
+(	
+	SELECT mask.mask_id,count FROM mask LEFT OUTER JOIN tabl ON mask.mask_id=tabl.mask_id
+)
+	SELECT mask_id FROM  tabl2 WHERE count= (SELECT max(count) FROM tabl2)
+)
+;
+
+
+
+
+
+-- update более интересный;
+-- delete  с огран целостности;
+--1 запрос вывести людей через запятую массивом или строкой
+
+

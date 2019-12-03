@@ -1,0 +1,63 @@
+1) 	/*SELECT list_price,product_id FROM (SELECT DISTINCT product_id AS pay FROM product WHERE description LIKE '%WIFF 	SOFTBALL%') AS foo ,
+ 	price WHERE product_id=pay AND CURRENT_DATE>start_date AND (CURRENT_DATE < end_date OR end_date IS NULL);*/
+
+WITH wiffsoft AS 
+(
+	SELECT DISTINCT product_id AS pay,description FROM product WHERE description LIKE ('%WIFF SOFTBALL%')
+) 
+	SELECT list_price,product_id,description FROM wiffsoft,price WHERE product_id=pay AND 
+	CURRENT_DATE>start_date AND (CURRENT_DATE < end_date OR end_date IS NULL);
+
+
+2)
+     /*SELECT name,regional_group,num FROM (SELECT department_id AS dd,count(*) AS num FROM employee WHERE job_id=(SELECT job_id FROM job WHERE function='ANALYST') GROUP BY department_id) AS foo,
+	 department,location WHERE department_id=dd AND location.location_id=department.location_id ;*/
+
+WITH new_analyst AS
+(
+	SELECT job_id AS jid FROM job WHERE function='ANALYST'
+),
+new_department AS
+(
+	SELECT department_id AS dd,count(*) AS num FROM employee,new_analyst WHERE job_id=jid GROUP BY department_id
+)
+	SELECT name,regional_group,num FROM new_department,department,location WHERE department_id=dd AND 
+	location.location_id=department.location_id ;
+
+3) 
+
+WITH jid AS
+(	
+	SELECT DISTINCT job_id AS jj FROM job WHERE function != 'SALESPERSON'	
+), 
+did AS 
+(
+	SELECT DISTINCT department_id AS dd FROM employee,jid WHERE job_id=jj AND commission IS NOT NULL
+)
+    SELECT regional_group,name FROM department,location,did WHERE department.department_id=dd AND 
+    department.location_id = location.location_id;	 	
+
+4)  
+
+WITH nwl AS 
+(	
+	SELECT DISTINCT department_id AS did FROM location, department WHERE regional_group='NEW YORK' AND 
+	department.location_id=location.location_id	
+),  
+new_employee AS
+(
+	SELECT DISTINCT employee_id AS eid FROM nwl, employee WHERE did=department_id
+),
+new_customer AS
+(
+	SELECT salesperson_id,customer_id AS cid FROM new_employee , customer WHERE eid=salesperson_id
+),
+new_saler AS
+(
+	SELECT salesperson_id,total FROM sales_order,new_customer WHERE cid=customer_id
+),
+new_sum AS
+(
+	SELECT salesperson_id,sum(total) FROM new_saler GROUP BY (salesperson_id)
+)
+	SELECT min(sum) FROM new_sum;	    
